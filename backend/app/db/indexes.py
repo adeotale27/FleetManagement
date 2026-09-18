@@ -7,6 +7,7 @@ INDEXES: dict[str, list[list[tuple]]] = {
     ],
     "locations": [[("tenant_id", 1), ("name", 1)], [("tenant_id", 1), ("status", 1)]],
     "routes": [[("tenant_id", 1), ("status", 1)]],
+    "vehicle_models": [[("tenant_id", 1), ("make", 1)]],
     "vehicles": [
         [("tenant_id", 1), ("vehicle_number", 1)],
         [("tenant_id", 1), ("status", 1)],

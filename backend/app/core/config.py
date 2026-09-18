@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
     app_env: str = "development"
     app_name: str = "OI Pulse Fleet"
@@ -19,8 +19,13 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     storage_dir: str = "./data/storage"
     run_seed: bool = False
+    login: str = "hidden"
     rate_limit_per_minute: int = 120
     log_level: str = "INFO"
+
+    @property
+    def login_hidden(self) -> bool:
+        return self.login.strip().lower() in {"hidden", "hide", "off", "bypass", "false"}
 
     @property
     def cors_origin_list(self) -> list[str]:

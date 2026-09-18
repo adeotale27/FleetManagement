@@ -3,7 +3,7 @@ from app.core.permissions import has_permission
 from app.repositories.base import TenantRepository
 from app.services.core import LedgerService, TRIP_TRANSITIONS
 from app.services.ops import TripService
-from tests.fakedb import FakeDB
+from app.db.memory import FakeDB
 
 
 @pytest.fixture

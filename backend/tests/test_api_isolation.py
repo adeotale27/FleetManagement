@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db.mongo import get_db
-from tests.fakedb import FakeDB
+from app.db.memory import FakeDB
 from app.core.permissions import ROLE_PERMISSIONS
 from app.core.security import create_access_token, hash_password
 from app.repositories.base import utcnow

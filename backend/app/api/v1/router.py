@@ -2,6 +2,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from app.api.deps import get_current_user, require_permission, require_tenant
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.config import get_settings
 from app.db.mongo import get_db, ping_db
 from app.repositories.base import GlobalRepository, TenantRepository
 from app.services.auth import AuthService, TenantService
@@ -14,6 +15,7 @@ router = APIRouter()
 RESOURCES = {
     "locations": "location",
     "routes": "route",
+    "vehicle-models": ("vehicle_models", "vehicle"),
     "vehicles": "vehicle",
     "vehicle-documents": ("vehicle_documents", "vehicle"),
     "maintenance": ("vehicle_maintenance", "vehicle"),
@@ -52,10 +54,42 @@ async def health_db():
     return {"success": ok, "status": "ok" if ok else "down"}
 
 
-@router.post("/auth/login")
-async def login(body: dict[str, Any]):
+@router.get("/public-config")
+async def public_config():
+    s = get_settings()
+    return {"success": True, "data": {"login": "hidden" if s.login_hidden else "required", "app_name": s.app_name}}
+
+
+PERSONAS = {
+    "platform": "platform@oi-pulse.local",
+    "owner": "owner@demo.local",
+    "deewanji": "deewanji@demo.local",
+}
+
+
+@router.post("/auth/dev-session")
+async def dev_session(body: dict[str, Any] | None = None):
+    from app.core.config import get_settings
+    from app.seed import seed_demo
+
+    if not get_settings().login_hidden or get_settings().is_production:
+        raise ForbiddenError("Login bypass is disabled")
+    persona = (body or {}).get("persona") or "owner"
+    email = PERSONAS.get(persona)
+    if not email:
+        raise NotFoundError("Unknown persona")
     db = get_db()
-    result = await AuthService(db).authenticate(body.get("email", ""), body.get("password", ""))
+    user = await db["users"].find_one({"email": email, "is_deleted": {"$ne": True}})
+    if not user:
+        await seed_demo(db)
+        user = await db["users"].find_one({"email": email})
+    if not user:
+        raise NotFoundError("Demo user missing")
+    result = await AuthService(db).authenticate(email, {
+        "platform": "Platform@123",
+        "owner": "Owner@123",
+        "deewanji": "Deewanji@123",
+    }[persona])
     return {"success": True, "data": result}
 
 

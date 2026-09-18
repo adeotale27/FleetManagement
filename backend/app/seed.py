@@ -76,6 +76,18 @@ async def seed_demo(db) -> None:
             }
         )
     await db["routes"].insert_many(routes)
+    now = utcnow()
+    await db["vehicle_models"].insert_many(
+        [
+            {"_id": oid(), "tenant_id": tid, "make": "Ashok Leyland", "model": "1618", "status": "active", "is_deleted": False, "created_at": now, "updated_at": now},
+            {"_id": oid(), "tenant_id": tid, "make": "Tata", "model": "407", "status": "active", "is_deleted": False, "created_at": now, "updated_at": now},
+        ]
+    )
+    extra_vehicles = [
+        {"vehicle_number": "MH40CM5129", "make": "Tata", "model": "407", "vehicle_type": "LCV", "status": "on_trip"},
+        {"vehicle_number": "MH40AB4455", "make": "Ashok Leyland", "model": "1618", "vehicle_type": "Truck", "status": "available"},
+        {"vehicle_number": "MH31DE9021", "make": "Tata", "model": "407", "vehicle_type": "LCV", "status": "maintenance"},
+    ]
     vehicle = {
         "_id": oid(),
         "tenant_id": tid,
@@ -89,34 +101,65 @@ async def seed_demo(db) -> None:
         "base_location_id": hg["_id"],
         "is_temporary": False,
         "is_deleted": False,
-        "created_at": utcnow(),
-        "updated_at": utcnow(),
+        "created_at": now,
+        "updated_at": now,
     }
     await db["vehicles"].insert_one(vehicle)
-    driver = {
-        "_id": oid(),
-        "tenant_id": tid,
-        "name": "Ramesh",
-        "mobile": "9000000002",
-        "licence_number": "MH14 20110012345",
-        "status": "active",
-        "is_deleted": False,
-        "created_at": utcnow(),
-        "updated_at": utcnow(),
-    }
-    await db["drivers"].insert_one(driver)
-    party = {
-        "_id": oid(),
-        "tenant_id": tid,
-        "name": "Prakash Food",
-        "mobile": "7020385327",
-        "city": "Hinganghat",
-        "status": "active",
-        "is_deleted": False,
-        "created_at": utcnow(),
-        "updated_at": utcnow(),
-    }
-    await db["parties"].insert_one(party)
+    for v in extra_vehicles:
+        await db["vehicles"].insert_one({**vehicle, "_id": oid(), **v, "status": v["status"]})
+    extra_drivers = [
+        ("Ramesh", "9000000002"),
+        ("Ranbid Chaudhari", "8668275499"),
+        ("Yaseen Khan", "7000660167"),
+        ("Suresh Manohar Fusate", "9270502676"),
+        ("SK Yusuf", "9765622917"),
+    ]
+    driver = None
+    for name, mobile in extra_drivers:
+        d = {
+            "_id": oid(),
+            "tenant_id": tid,
+            "name": name,
+            "mobile": mobile,
+            "role_name": "Driver",
+            "licence_number": "MH14 20110012345",
+            "status": "active",
+            "is_deleted": False,
+            "created_at": now,
+            "updated_at": now,
+            "created_by_name": "Demo Owner",
+        }
+        await db["drivers"].insert_one(d)
+        if driver is None:
+            driver = d
+    extra_parties = [
+        ("Prakash Food", "7020385327", "Hinganghat"),
+        ("Kochar Polypack Private Limited", "2222222222", "Nagpur"),
+        ("RJ Polychem Private Limited", "1111111111", "Nagpur"),
+        ("Naidu Garage NGP", "7304047399", "Nagpur"),
+        ("Mandhaniya Industries", "7020874205", "Wadi"),
+        ("Hira Food Products", "9049958211", "Hinganghat"),
+        ("A.R. Pulses", "9096569848", "Hinganghat"),
+        ("Chainkunwar", "9827172360", "Nagpur"),
+    ]
+    party = None
+    for name, mobile, city in extra_parties:
+        p = {
+            "_id": oid(),
+            "tenant_id": tid,
+            "name": name,
+            "mobile": mobile,
+            "city": city,
+            "role_name": "Party",
+            "status": "active",
+            "is_deleted": False,
+            "created_at": now,
+            "updated_at": now,
+            "created_by_name": "Demo Owner",
+        }
+        await db["parties"].insert_one(p)
+        if party is None:
+            party = p
     deewanji = {
         "_id": oid(),
         "tenant_id": tid,
@@ -176,4 +219,9 @@ async def seed_demo(db) -> None:
         {"party_id": party["_id"], "amount": 1500, "payment_mode": "Cash", "deewanji_id": deewanji["_id"]},
         uid,
         tenant,
+    )
+    await FinanceOpsService(db).record_expense(
+        tid,
+        {"category": "Toll", "amount": 350, "payment_mode": "Cash", "remarks": "Hinganghat checkpost"},
+        uid,
     )
