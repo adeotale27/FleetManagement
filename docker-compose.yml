@@ -1,0 +1,25 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+  api:
+    build: ./backend
+    environment:
+      MONGODB_URL: mongodb://mongo:27017
+      MONGODB_DATABASE: fleet_logistics
+      JWT_SECRET: change-me-in-compose
+      CORS_ORIGINS: http://localhost:8080
+      APP_ENV: production
+      RUN_SEED: "false"
+    depends_on:
+      - mongo
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+volumes:
+  mongo_data:
