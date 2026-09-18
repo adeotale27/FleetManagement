@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { Button, ErrorState, Input, Select, Skeleton } from "../components/ui/primitives";
+import { MapPin } from "../components/forms/MapPin";
 import type { PageResult } from "../types";
 
 export function TripCreatePage() {
@@ -72,7 +73,9 @@ export function TripCreatePage() {
         <>
           <Input label="Source" value={form.origin_name || ""} onChange={(e) => setForm({ ...form, origin_name: e.target.value })} required />
           <Input label="Destination" value={form.destination_name || ""} onChange={(e) => setForm({ ...form, destination_name: e.target.value })} required />
-          <Input label="Source pin (lat,lng optional)" value={form.origin_lat || ""} onChange={(e) => setForm({ ...form, origin_lat: e.target.value })} />
+          <p className="muted">Pin the source (Nagpur region default). Adjust lat/lng if you know the yard.</p>
+          <MapPin lat={form.origin_lat} lng={form.origin_lng} onChange={(lat, lng) => setForm({ ...form, origin_lat: lat, origin_lng: lng })} />
+          <MapPin lat={form.dest_lat} lng={form.dest_lng} onChange={(lat, lng) => setForm({ ...form, dest_lat: lat, dest_lng: lng })} />
         </>
       )}
       {selectedRoute ? (

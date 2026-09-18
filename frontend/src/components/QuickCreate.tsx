@@ -11,7 +11,7 @@ const ITEMS = [
   ["Driver", "/drivers"],
   ["Vehicle", "/vehicles"],
   ["Party", "/parties"],
-  ["Employee Advance", "/people"],
+  ["Employee Advance", "/employees"],
 ];
 
 export function QuickCreate({ onDone }: { onDone: () => void }) {

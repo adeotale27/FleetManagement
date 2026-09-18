@@ -195,6 +195,7 @@ class MasterService:
     SEARCH: dict[str, list[str]] = {
         "locations": ["name", "city", "address"],
         "routes": ["name", "origin_name", "destination_name"],
+        "vehicle_models": ["make", "model"],
         "vehicles": ["vehicle_number", "make", "model"],
         "drivers": ["name", "mobile", "licence_number"],
         "employees": ["name", "mobile", "role_name"],

@@ -1,12 +1,14 @@
 from typing import Any
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from app.api.deps import get_current_user, require_permission, require_tenant
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.core.config import get_settings
 from app.db.mongo import get_db, ping_db
 from app.repositories.base import GlobalRepository, TenantRepository
 from app.services.auth import AuthService, TenantService
 from app.services.core import LedgerService, MasterService
 from app.services.finance import FinanceOpsService
+from app.schemas.finance import CollectionBody
 from app.services.ops import LrService, TripService
 
 router = APIRouter()
@@ -14,6 +16,7 @@ router = APIRouter()
 RESOURCES = {
     "locations": "location",
     "routes": "route",
+    "vehicle-models": ("vehicle_models", "vehicle"),
     "vehicles": "vehicle",
     "vehicle-documents": ("vehicle_documents", "vehicle"),
     "maintenance": ("vehicle_maintenance", "vehicle"),
@@ -52,10 +55,42 @@ async def health_db():
     return {"success": ok, "status": "ok" if ok else "down"}
 
 
-@router.post("/auth/login")
-async def login(body: dict[str, Any]):
+@router.get("/public-config")
+async def public_config():
+    s = get_settings()
+    return {"success": True, "data": {"login": "hidden" if s.login_hidden else "required", "app_name": s.app_name}}
+
+
+PERSONAS = {
+    "platform": "platform@oi-pulse.local",
+    "owner": "owner@demo.local",
+    "deewanji": "deewanji@demo.local",
+}
+
+
+@router.post("/auth/dev-session")
+async def dev_session(body: dict[str, Any] | None = None):
+    from app.core.config import get_settings
+    from app.seed import seed_demo
+
+    if not get_settings().login_hidden or get_settings().is_production:
+        raise ForbiddenError("Login bypass is disabled")
+    persona = (body or {}).get("persona") or "owner"
+    email = PERSONAS.get(persona)
+    if not email:
+        raise NotFoundError("Unknown persona")
     db = get_db()
-    result = await AuthService(db).authenticate(body.get("email", ""), body.get("password", ""))
+    user = await db["users"].find_one({"email": email, "is_deleted": {"$ne": True}})
+    if not user:
+        await seed_demo(db)
+        user = await db["users"].find_one({"email": email})
+    if not user:
+        raise NotFoundError("Demo user missing")
+    result = await AuthService(db).authenticate(email, {
+        "platform": "Platform@123",
+        "owner": "Owner@123",
+        "deewanji": "Deewanji@123",
+    }[persona])
     return {"success": True, "data": result}
 
 
@@ -209,6 +244,52 @@ async def search(q: str = Query(min_length=2), user=Depends(require_tenant)):
     return {"success": True, "data": groups}
 
 
+@router.get("/parties/autocomplete")
+async def party_autocomplete(q: str = Query(min_length=2), user=Depends(require_permission("party:read"))):
+    db = get_db()
+    items = await db["parties"].find(
+        {
+            "tenant_id": user["tenant_id"],
+            "is_deleted": {"$ne": True},
+            "$or": [{"name": {"$regex": q, "$options": "i"}}, {"mobile": {"$regex": q, "$options": "i"}}],
+        }
+    ).limit(8).to_list(8)
+    ledger = LedgerService(db)
+    from app.repositories.base import serialize
+
+    out = []
+    for item in items:
+        row = serialize(item)
+        row["outstanding"] = await ledger.balance(user["tenant_id"], "party", row["id"])
+        out.append(row)
+    return {"success": True, "data": {"items": out}}
+
+
+@router.post("/auth/password-reset/request")
+async def password_reset_request(body: dict[str, Any]):
+    await AuthService(get_db()).request_password_reset(body.get("email") or "")
+    return {"success": True, "data": {"message": "If that account exists, a reset was recorded."}}
+
+
+@router.post("/files")
+async def upload_file(
+    entity: str = Form(...),
+    entity_id: str = Form(...),
+    upload: UploadFile = File(...),
+    user=Depends(require_tenant),
+):
+    from app.services.storage import FileService
+
+    data = await FileService(get_db()).upload(user["tenant_id"], user["id"], entity, entity_id, upload)
+    return {"success": True, "data": data}
+
+
+@router.get("/finance/deewanji")
+async def deewanji_dash(user=Depends(require_permission("collection:read"))):
+    data = await FinanceOpsService(get_db()).deewanji_day(user["tenant_id"], user["id"])
+    return {"success": True, "data": data}
+
+
 @router.get("/finance/ledger/{account_type}/{account_id}")
 async def ledger(account_type: str, account_id: str, user=Depends(require_permission("finance:read"))):
     svc = LedgerService(get_db())
@@ -224,10 +305,11 @@ async def receivables(user=Depends(require_permission("finance:read"))):
 
 
 @router.post("/finance/collections")
-async def create_collection(body: dict[str, Any], request: Request, user=Depends(require_permission("collection:create"))):
+async def create_collection(body: CollectionBody, user=Depends(require_permission("collection:create"))):
+    payload = body.model_dump()
     if user.get("idempotency_key"):
-        body["idempotency_key"] = user["idempotency_key"]
-    data = await FinanceOpsService(get_db()).record_collection(user["tenant_id"], body, user["id"], user.get("tenant") or {})
+        payload["idempotency_key"] = user["idempotency_key"]
+    data = await FinanceOpsService(get_db()).record_collection(user["tenant_id"], payload, user["id"], user.get("tenant") or {})
     return {"success": True, "data": data}
 
 
@@ -329,18 +411,21 @@ async def reports(name: str, user=Depends(require_permission("report:read")), fo
     from app.repositories.base import serialize
 
     rows = [serialize(i) for i in items]
-    if format == "csv":
-        import csv
-        import io
+    from app.services.export import ExportService
 
-        buf = io.StringIO()
-        if rows:
-            writer = csv.DictWriter(buf, fieldnames=sorted(rows[0].keys()))
-            writer.writeheader()
-            writer.writerows(rows)
+    exporter = ExportService()
+    if format == "csv":
         from fastapi.responses import PlainTextResponse
 
-        return PlainTextResponse(buf.getvalue(), media_type="text/csv")
+        return PlainTextResponse(exporter.csv(rows), media_type="text/csv")
+    if format == "xlsx":
+        from fastapi.responses import Response
+
+        return Response(
+            exporter.xlsx(rows),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={name}.xlsx"},
+        )
     return {"success": True, "data": {"items": rows, "total": len(rows)}}
 
 
