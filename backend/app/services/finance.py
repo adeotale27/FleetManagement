@@ -335,7 +335,41 @@ class FinanceOpsService:
             "unread_notifications": await notes.count_documents(
                 {"tenant_id": tenant_id, "read": {"$ne": True}, "is_deleted": {"$ne": True}}
             ),
+            "expense_breakdown": await self._expense_breakdown(tenant_id),
+            "daily": await self._daily(tenant_id, now),
         }
+
+    async def _expense_breakdown(self, tenant_id: str) -> list[dict]:
+        rows = await self.db["ledger_entries"].find(
+            {"tenant_id": tenant_id, "account_type": "expense", "voided": {"$ne": True}}
+        ).to_list(2000)
+        buckets: dict[str, float] = {}
+        for row in rows:
+            key = str(row.get("account_id") or "Other")
+            buckets[key] = buckets.get(key, 0) + money(row.get("debit"))
+        return [{"category": k, "amount": v} for k, v in sorted(buckets.items(), key=lambda x: -x[1])]
+
+    async def _daily(self, tenant_id: str, now: datetime) -> list[dict]:
+        start = now - timedelta(days=7)
+        rows = await self.db["ledger_entries"].find(
+            {"tenant_id": tenant_id, "voided": {"$ne": True}, "account_type": {"$in": ["cash", "bank", "expense"]}}
+        ).to_list(4000)
+        days = [(now - timedelta(days=i)).date().isoformat() for i in range(7, -1, -1)]
+        out = {d: {"date": d, "in": 0.0, "out": 0.0} for d in days}
+        for row in rows:
+            created = row.get("created_at")
+            if hasattr(created, "date"):
+                key = created.date().isoformat()
+            else:
+                key = str(created)[:10]
+            if key not in out:
+                continue
+            if row.get("account_type") == "expense":
+                out[key]["out"] += money(row.get("debit"))
+            elif row.get("account_type") in {"cash", "bank"}:
+                out[key]["in"] += money(row.get("debit"))
+                out[key]["out"] += money(row.get("credit"))
+        return [out[d] for d in days]
 
     async def party_outstanding_list(self, tenant_id: str) -> list[dict]:
         pipe = [
