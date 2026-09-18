@@ -43,6 +43,7 @@ export function FinancePage() {
             columns={[
               { key: "name", label: "Party" },
               { key: "outstanding", label: "Outstanding" },
+              { key: "aging", label: "Age" },
             ]}
             onRow={(r) => nav(`/parties/${r.id}`)}
           />

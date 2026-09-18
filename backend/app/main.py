@@ -10,6 +10,7 @@ from app.core.exceptions import AppError, app_error_handler, http_error_handler,
 from app.core.logging import RequestIdMiddleware, configure_logging
 from app.db.indexes import ensure_indexes
 from app.db.mongo import close_db, enable_memory, get_db, ping_db
+from app.middleware.rate_limit import RateLimitMiddleware
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

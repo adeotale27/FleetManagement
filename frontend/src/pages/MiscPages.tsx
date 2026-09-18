@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Button, ErrorState, Input, Skeleton, StatCard } from "../components/ui/primitives";
 import { DataTable, StatusBadge } from "../components/tables/DataTable";
@@ -106,6 +106,8 @@ export function RecordDetailPage({ resource }: { resource: string }) {
           Print LR
         </a>
       ) : null}
+      {resource === "parties" ? <a className="btn" href={`/parties/${id}/ledger`}>Open ledger</a> : null}
+      {resource === "drivers" ? <a className="btn" href={`/drivers/${id}/ledger`}>Advance ledger</a> : null}
     </section>
   );
 }
@@ -123,8 +125,8 @@ export function ReportsPage() {
               <a className="btn secondary" href={`/api/v1/reports/${r}`}>
                 View
               </a>
-              <a className="btn secondary" href={`/api/v1/reports/${r}?format=csv`}>
-                CSV
+              <a className="btn secondary" href={`/api/v1/reports/${r}?format=xlsx`}>
+                Excel
               </a>
             </div>
           </div>
@@ -173,14 +175,35 @@ export function PlatformPage() {
 
 export function SettingsPage() {
   const q = useQuery({ queryKey: ["settings"], queryFn: () => api<Record<string, unknown>>("/settings") });
+  const [form, setForm] = useState({ business_name: "", gstin: "", address: "", timezone: "Asia/Kolkata" });
+  useEffect(() => {
+    const t = q.data as { business_name?: string; profile?: Record<string, string> } | undefined;
+    if (!t) return;
+    setForm({
+      business_name: t.business_name || "",
+      gstin: t.profile?.gstin || "",
+      address: t.profile?.address || "",
+      timezone: t.profile?.timezone || "Asia/Kolkata",
+    });
+  }, [q.data]);
+  const save = useMutation({
+    mutationFn: () =>
+      api("/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ business_name: form.business_name, profile: { gstin: form.gstin, address: form.address, timezone: form.timezone } }),
+      }),
+  });
   if (q.isLoading) return <Skeleton />;
   return (
-    <section>
-      <h1 className="h1">Settings</h1>
-      <pre className="card" style={{ overflow: "auto" }}>
-        {JSON.stringify(q.data, null, 2)}
-      </pre>
-    </section>
+    <form className="grid" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
+      <h1 className="h1">Business settings</h1>
+      <label className="field">Business name<input className="input" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></label>
+      <label className="field">GSTIN<input className="input" value={form.gstin} onChange={(e) => setForm({ ...form, gstin: e.target.value })} /></label>
+      <label className="field">Address<input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
+      <label className="field">Timezone<input className="input" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} /></label>
+      <button className="btn" type="submit">Save</button>
+      {save.isSuccess ? <p>Saved.</p> : null}
+    </form>
   );
 }
 

@@ -17,9 +17,9 @@ const TOP = [
 const SIDES: Record<string, { group: string; items: { to: string; label: string }[] }[]> = {
   ops: [
     { group: "Ops", items: [{ to: "/ops", label: "Ops board" }, { to: "/finance", label: "Money" }, { to: "/trips", label: "Trips" }, { to: "/lrs", label: "LR" }] },
-    { group: "Work", items: [{ to: "/collections/new", label: "Collection" }, { to: "/expenses/new", label: "Expense" }, { to: "/reports", label: "Reports" }] },
+    { group: "Work", items: [{ to: "/collections/new", label: "Collection" }, { to: "/deewanji", label: "Deewanji" }, { to: "/expenses/new", label: "Expense" }, { to: "/reports", label: "Reports" }] },
   ],
-  vehicles: [{ group: "Fleet", items: [{ to: "/vehicles", label: "Vehicle listing" }, { to: "/vehicle-models", label: "Vehicle models" }] }],
+  vehicles: [{ group: "Fleet", items: [{ to: "/vehicles", label: "Vehicle listing" }, { to: "/vehicle-models", label: "Vehicle models" }, { to: "/vehicle-documents", label: "Documents" }, { to: "/maintenance", label: "Maintenance" }] }],
   drivers: [{ group: "People", items: [{ to: "/drivers", label: "Drivers" }, { to: "/employees", label: "Employees" }, { to: "/handovers", label: "Handover" }] }],
   parties: [{ group: "Parties", items: [{ to: "/parties", label: "Clients" }, { to: "/partners", label: "3PL partners" }, { to: "/fuel-providers", label: "Fuel pumps" }] }],
   locations: [{ group: "Network", items: [{ to: "/locations", label: "Locations" }, { to: "/routes", label: "Indoor routes" }] }],

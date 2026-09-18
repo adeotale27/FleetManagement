@@ -3,14 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { api } from "../api/client";
 import { Button, ErrorState, Input, Select, Skeleton } from "../components/ui/primitives";
+import { PartyAutocomplete } from "../components/forms/PartyAutocomplete";
 import type { PageResult } from "../types";
 
 export function LrCreatePage() {
   const [params] = useSearchParams();
   const [form, setForm] = useState<Record<string, string>>({ trip_id: params.get("trip") || "", freight_type: "NOT_PAID" });
-  const [q, setQ] = useState("");
   const trips = useQuery({ queryKey: ["trips"], queryFn: () => api<PageResult<Record<string, string>>>("/trips") });
-  const parties = useQuery({ queryKey: ["parties", q], queryFn: () => api<PageResult<Record<string, string>>>(`/parties?search=${encodeURIComponent(q)}`) });
   const [err, setErr] = useState<string | null>(null);
   const mutate = useMutation({
     mutationFn: () =>
@@ -57,21 +56,12 @@ export function LrCreatePage() {
           Vehicle {trip.vehicle_number} · Driver {trip.driver_name} · {trip.origin_name} → {trip.destination_name}
         </div>
       ) : null}
-      <Input label="Search sender" value={q} onChange={(e) => setQ(e.target.value)} />
-      <Select label="Sender" value={form.sender_id || ""} onChange={(e) => setForm({ ...form, sender_id: e.target.value })}>
-        <option value="">Create new below</option>
-        {(parties.data?.items || []).map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name} · {p.mobile} · {p.city}
-          </option>
-        ))}
-      </Select>
-      {!form.sender_id ? (
-        <>
-          <Input label="New sender name" value={form.sender_name || ""} onChange={(e) => setForm({ ...form, sender_name: e.target.value })} />
-          <Input label="Mobile" value={form.sender_mobile || ""} onChange={(e) => setForm({ ...form, sender_mobile: e.target.value })} />
-        </>
-      ) : null}
+      <PartyAutocomplete
+        onSelect={(p, createName) => {
+          if (p) setForm({ ...form, sender_id: p.id, sender_name: p.name });
+          else if (createName) setForm({ ...form, sender_id: "", sender_name: createName, create_sender: "1" });
+        }}
+      />
       <Input label="Receiver" value={form.receiver_name || ""} onChange={(e) => setForm({ ...form, receiver_name: e.target.value })} required />
       <Input label="Goods description" value={form.articles || ""} onChange={(e) => setForm({ ...form, articles: e.target.value })} />
       <Input label="Weight" type="number" value={form.weight || ""} onChange={(e) => setForm({ ...form, weight: e.target.value })} />

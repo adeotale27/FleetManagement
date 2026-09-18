@@ -38,6 +38,23 @@ class AuthService:
             "user": self.public_user(user, tenant),
         }
 
+    async def request_password_reset(self, email: str) -> None:
+        user = await self.users.find_one({"email": email.lower().strip(), "is_deleted": {"$ne": True}})
+        if not user:
+            return
+        token = oid()
+        await self.users.update_one({"_id": user["_id"]}, {"$set": {"reset_token_hash": hash_password(token), "reset_requested_at": utcnow()}})
+        await self.audit.record(tenant_id=user.get("tenant_id"), user_id=str(user["_id"]), entity="users", entity_id=str(user["_id"]), action="password_reset_requested")
+
+    async def confirm_password_reset(self, email: str, token: str, new_password: str) -> None:
+        user = await self.users.find_one({"email": email.lower().strip(), "is_deleted": {"$ne": True}})
+        if not user or not user.get("reset_token_hash") or not verify_password(token, user["reset_token_hash"]):
+            raise UnauthorizedError("Reset is not valid")
+        await self.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"password_hash": hash_password(new_password), "reset_token_hash": None, "updated_at": utcnow()}},
+        )
+
     def public_user(self, user: dict, tenant: dict | None = None) -> dict[str, Any]:
         return {
             "id": str(user["_id"]),

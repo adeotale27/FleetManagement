@@ -51,7 +51,7 @@ export function OwnerHome() {
     user?.role === "DEEWANJI"
       ? [
           ["/collections/new", "Collect money", "Party, amount, mode — save in seconds."],
-          ["/ops", "Today’s board", "Cash with me and what is still due."],
+          ["/deewanji", "Today’s board", "Cash with me and what is still due."],
           ["/handovers", "Handover", "Give cash to owner, office, or bank."],
           ["/parties", "Parties", "Find who still owes."],
         ]

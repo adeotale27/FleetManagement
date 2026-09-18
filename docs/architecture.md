@@ -29,4 +29,11 @@ Balances are computed from `ledger_entries` (debit/credit). Collections, expense
 
 File metadata is tenant-scoped. Object storage, SMS, WhatsApp, GPS, and GST adapters are intentionally not hard-wired; environment placeholders exist.
 
-Offline: UI shows network status and avoids double submits via mutation pending state. Background sync is future work.
+## Coverage vs product spec
+
+Implemented as a modular monolith with tenant-scoped repositories and ledger finance.
+
+**In this release:** platform admin, tenant settings, locations/routes, vehicle listing/models/documents/maintenance (not a full tyre/spare warehouse), drivers/employees/advances, parties + autocomplete + ledger, indoor/outdoor trips, LR print/templates, fuel + 3PL ledgers, expenses, collections/handover, owner & Deewanji dashboards, reports CSV/Excel, notifications, PWA, Docker, isolation tests.
+
+**Deferred / adapters only:** GPS, FASTag, WhatsApp/SMS senders, billing provider, AI, customer portal, tyre/spare stock ledgers. Storage is local-disk with a swap-ready interface.
+

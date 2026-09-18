@@ -7,6 +7,8 @@ import { LrCreatePage } from "./pages/LrCreatePage";
 import { CollectionPage } from "./pages/CollectionPage";
 import { FinancePage } from "./pages/FinancePage";
 import { OwnerHome, RoleHome } from "./pages/RoleHome";
+import { LedgerPage } from "./pages/LedgerPage";
+import { DeewanjiPage } from "./pages/DeewanjiPage";
 import {
   ExpensePage,
   FuelPage,
@@ -53,7 +55,13 @@ export function AppRoutes({ onLogin }: { onLogin: (token: string, user: unknown)
       <Route path="/drivers/:id" element={<Guard perm="driver:read"><RecordDetailPage resource="drivers" /></Guard>} />
       <Route path="/employees" element={<Guard perm="employee:read"><MasterList title="Employees" resource="employees" columns={[{ key: "name", label: "Name" }, { key: "mobile", label: "Mobile" }, { key: "role_name", label: "Role" }, { key: "status", label: "Status" }]} fields={[{ key: "name", label: "Name" }, { key: "mobile", label: "Mobile" }, { key: "role_name", label: "Role" }]} /></Guard>} />
       <Route path="/parties" element={<Guard perm="party:read"><MasterList title="Client listing" resource="parties" columns={[{ key: "name", label: "Name" }, { key: "mobile", label: "Mobile" }, { key: "city", label: "City" }, { key: "status", label: "Status" }]} fields={[{ key: "name", label: "Name" }, { key: "mobile", label: "Mobile" }, { key: "city", label: "City" }]} /></Guard>} />
+      <Route path="/parties/:id/ledger" element={<Guard perm="finance:read"><LedgerPage accountType="party" /></Guard>} />
       <Route path="/parties/:id" element={<Guard perm="party:read"><RecordDetailPage resource="parties" /></Guard>} />
+      <Route path="/drivers/:id/ledger" element={<Guard perm="finance:read"><LedgerPage accountType="driver" /></Guard>} />
+      <Route path="/employees/:id/ledger" element={<Guard perm="finance:read"><LedgerPage accountType="employee" /></Guard>} />
+      <Route path="/deewanji" element={<Guard perm="collection:read"><DeewanjiPage /></Guard>} />
+      <Route path="/vehicle-documents" element={<Guard perm="vehicle:read"><MasterList title="Vehicle documents" resource="vehicle-documents" columns={[{ key: "doc_type", label: "Type" }, { key: "vehicle_number", label: "Vehicle" }, { key: "expiry_date", label: "Expiry" }, { key: "status", label: "Status" }]} fields={[{ key: "doc_type", label: "Type (RC/Insurance/Permit/Fitness/PUC)" }, { key: "vehicle_id", label: "Vehicle ID" }, { key: "expiry_date", label: "Expiry YYYY-MM-DD" }]} /></Guard>} />
+      <Route path="/maintenance" element={<Guard perm="vehicle:read"><MasterList title="Maintenance" resource="maintenance" columns={[{ key: "description", label: "Work" }, { key: "cost", label: "Cost" }, { key: "vendor", label: "Vendor" }]} fields={[{ key: "vehicle_id", label: "Vehicle ID" }, { key: "description", label: "Description" }, { key: "cost", label: "Cost" }, { key: "vendor", label: "Vendor" }]} /></Guard>} />
       <Route path="/locations" element={<Guard perm="location:read"><MasterList title="Locations" resource="locations" columns={[{ key: "name", label: "Name" }, { key: "city", label: "City" }, { key: "type", label: "Type" }, { key: "status", label: "Status" }]} fields={[{ key: "name", label: "Name" }, { key: "city", label: "City" }, { key: "type", label: "Type" }]} /></Guard>} />
       <Route path="/routes" element={<Guard perm="route:read"><MasterList title="Indoor routes" resource="routes" columns={[{ key: "name", label: "Name" }, { key: "origin_name", label: "From" }, { key: "destination_name", label: "To" }, { key: "status", label: "Status" }]} fields={[{ key: "name", label: "Name" }, { key: "origin_name", label: "Origin" }, { key: "destination_name", label: "Destination" }]} /></Guard>} />
       <Route path="/fuel-providers" element={<Guard perm="fuel:read"><MasterList title="Fuel pumps" resource="fuel-providers" columns={[{ key: "name", label: "Name" }, { key: "location", label: "Location" }]} fields={[{ key: "name", label: "Name" }, { key: "location", label: "Location" }]} /></Guard>} />

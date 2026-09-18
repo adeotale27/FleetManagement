@@ -372,11 +372,50 @@ class FinanceOpsService:
         return [out[d] for d in days]
 
     async def party_outstanding_list(self, tenant_id: str) -> list[dict]:
-        pipe = [
-            {"$match": {"tenant_id": tenant_id, "account_type": "party", "voided": {"$ne": True}}},
-            {"$group": {"_id": "$account_id", "debit": {"$sum": "$debit"}, "credit": {"$sum": "$credit"}, "name": {"$last": "$party_name"}}},
-            {"$project": {"party_id": "$_id", "outstanding": {"$subtract": ["$debit", "$credit"]}, "name": 1}},
-            {"$match": {"outstanding": {"$gt": 0}}},
-            {"$sort": {"outstanding": -1}},
-        ]
-        return await self.db["ledger_entries"].aggregate(pipe).to_list(200)
+        rows = await self.db["ledger_entries"].find(
+            {"tenant_id": tenant_id, "account_type": "party", "voided": {"$ne": True}}
+        ).to_list(5000)
+        buckets: dict[str, dict] = {}
+        for row in rows:
+            pid = str(row.get("account_id"))
+            b = buckets.setdefault(pid, {"party_id": pid, "name": row.get("party_name") or pid, "debit": 0.0, "credit": 0.0, "first": row.get("created_at")})
+            b["debit"] += money(row.get("debit"))
+            b["credit"] += money(row.get("credit"))
+            b["name"] = row.get("party_name") or b["name"]
+        out = []
+        now = datetime.now(timezone.utc)
+        for b in buckets.values():
+            outstanding = money(b["debit"] - b["credit"])
+            if outstanding <= 0:
+                continue
+            first = b.get("first")
+            days = 0
+            if hasattr(first, "date"):
+                days = (now - first.replace(tzinfo=timezone.utc) if first.tzinfo is None else now - first).days
+            bucket = "current" if days <= 0 else "1-30" if days <= 30 else "31-60" if days <= 60 else "61-90" if days <= 90 else "90+"
+            out.append({"party_id": b["party_id"], "name": b["name"], "outstanding": outstanding, "age_days": days, "aging": bucket})
+        out.sort(key=lambda x: -x["outstanding"])
+        return out
+
+    async def deewanji_day(self, tenant_id: str, deewanji_id: str) -> dict:
+        start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        rows = await self.db["collections"].find(
+            {"tenant_id": tenant_id, "collected_by": deewanji_id, "is_deleted": {"$ne": True}}
+        ).to_list(500)
+        today = [r for r in rows if str(r.get("created_at") or r.get("date") or "").find(start.date().isoformat()) >= 0 or (hasattr(r.get("created_at"), "date") and r["created_at"].date() == start.date())]
+        modes = {"Cash": 0.0, "UPI": 0.0, "Bank": 0.0, "Other": 0.0}
+        total = 0.0
+        for r in today:
+            amt = money(r.get("amount"))
+            total += amt
+            mode = r.get("payment_mode") or "Other"
+            modes[mode if mode in modes else "Other"] += amt
+        cash_with = await self.ledger.balance(tenant_id, "deewanji", deewanji_id)
+        return {
+            "today_collection": total,
+            "cash": modes["Cash"],
+            "upi": modes["UPI"],
+            "bank": modes["Bank"],
+            "other": modes["Other"],
+            "cash_with_me": cash_with,
+        }
